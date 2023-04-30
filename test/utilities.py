@@ -3,25 +3,6 @@ import imageio.v3 as iio
 from collections import namedtuple
 import tensorflow as tf
 
-def getwebcam(nb_img,enregistrer):
-    if nb_img<0:return None
-    frames=[]
-    for frame_count, frame in enumerate(iio.imiter("<video0>")):
-        if enregistrer :iio.imwrite(f"frame1_{frame_count}.jpg", frame)
-        frames.append(frame)
-        if frame_count > nb_img-2:
-            break
-    return(np.array(frames))
-
-def get_grad(imglist):
-    imgs=[]
-    for img in imglist:
-        #img1 = np.squeeze(np.hsplit(img,img.shape[1]))
-        img2=np.gradient(img)
-        imgs.append(np.add(img2[0],img2[1],img2[2]))
-    imgs=np.clip(imgs,0,255)
-    print(imgs.shape)
-    return(np.array(imgs))
 
 Experience = namedtuple("Experience",("state","action","reward","next_state","done"))
 
