@@ -1,4 +1,5 @@
 import tensorflow as tf
+
 class para:
     """
     Classe de tous les paramètres modifiables
@@ -16,7 +17,7 @@ class para:
     opti=tf.keras.optimizers.RMSprop(learning_rate=LearningRate, rho=0.95, epsilon=0.01)    	
     loss=tf.keras.losses.CategoricalCrossentropy()                                          	
     metrique=[tf.keras.metrics.CategoricalCrossentropy()]                                   	
-    initializer= tf.keras.initializers.HeUniform()							                        
+    initializer= tf.keras.initializers.RandomNormal(stddev=0.25,mean=0.5)						                        
 
         # exploration ou exploitation
     eps_st = 1											# valeur d'exploration/ exploitation au départ
@@ -26,17 +27,19 @@ class para:
         # gestion du target+Memoire
     target_update = 16                  	# nombre de tour entre chaque actualisation du target net ( si soft update est désactivé )
     memory_size = 20000                  	# taille de la Replay memory
-    batch_size = 64                     	# taille du batch de Replay memory sur lequel j'entraine le modèle à chaque tour
+    batch_size = 2                     	# taille du batch de Replay memory sur lequel j'entraine le modèle à chaque tour
     batchsize = 32                      	# taille du batch avec lequel j'utilise la fonction fit
     tau=0.1					                # valeur de soft update
     PER_epsi = 0.01				            # valeurs servant à définir la perte pour choisir les données sur lesquelles entrainer l'algorithme
     PER_alpha = 0.6				            #
 
-    supervised=0     #nb de tous en supervisés
+    supervised=0     #nb de tours en supervisés
 
     gamma = 0.999                       	# taux de diminution de la récompense
 
+    inputshape = (1,720,1280,3)
+    actionspace = 100
+    epochs = 3
 
-    size= []	# taille de l'environnement ( ne pas faire varier sauf si ajout d'obstacles )
-
-    def_step = 400                      	# le nombre maximal de pas authorisé par tour
+    target_update=20
+    checkpoint=20
