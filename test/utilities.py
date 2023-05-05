@@ -1,7 +1,5 @@
 import numpy as np
-import imageio.v3 as iio
 from collections import namedtuple
-import tensorflow as tf
 
 
 Experience = namedtuple("Experience",("state","action","reward","next_state","done"))
@@ -11,10 +9,10 @@ def extract_tensors(experiences):
     J'extrais 5 tenseurs à partir d'un named tuples experiences 
     """
     batch = Experience(*zip(*experiences))
-    t1 = tf.concat([batch.state],-1)
+    t1 = np.squeeze(np.concatenate([batch.state],-1))
     t2 = np.concatenate([batch.action],-1)
     t3 = np.concatenate([batch.reward],-1)
-    t4 = tf.concat([batch.next_state],-1)
+    t4 = np.squeeze(np.concatenate([[batch.next_state]],-1))
     t5 = np.concatenate([batch.done],-1)
     return(t1,t2,t3,t4,t5)
 
@@ -55,4 +53,5 @@ class SumTree:
     def get(self, s):
         idx = self._retrieve(0, s)
         dataIdx = idx - self.capacity + 1
-        return (idx, self.tree[idx], self.data[dataIdx])
+        return [idx, self.data[dataIdx]]
+    
