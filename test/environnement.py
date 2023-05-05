@@ -7,6 +7,7 @@ class ENV():
         self.batches=parametres.para.inputshape[0]
         self.state=self.getwebcam(False)
         self.done=False
+        self.loutre =0
     
     def getwebcam(self,enregistrer):
         if self.batches<0:return None
@@ -27,12 +28,22 @@ class ENV():
         return(np.array(imgs))
 
     def get_context_map(self):
-        pass
+        return self.getwebcam(False)  #temporaire
 
     def get_state(self):
-        return()
+        #condition pour changer env.done
+        grad = self.get_grad()
+        context=self.get_context_map()
+
+        return [grad,context]
 
     def take_action(self,action):
-        pass # agit sur le moteur en fonction de l'action
-
+        reward = 0
+        
+        self.loutre+=1
+        if self.loutre> 10 : self.done = True               # agit sur le moteur en fonction de l'action
+        return reward,self.done 
+    
+    def reset(self):
+        pass
 env=ENV()
