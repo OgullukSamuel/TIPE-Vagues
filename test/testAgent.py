@@ -18,7 +18,7 @@ class Agent(tf.Module):
         self.dueling=param.dueling;self.TAU = param.tau
         self.inputshape=param.inputshape;self.actionspace=param.actionspace
         self.initializer=param.initializer;self.supervised=param.supervised
-        self.opti=param.opti;self.lossing=param.loss
+        self.opti=param.opti;self.lossing=param.loss                                    #initialisation de toutes les variables à aprtri de param
         self.dir=param.dir;self.metrique=param.metrique
         self.tau_update=param.tau_update;self.gamma=param.gamma
         self.episodes =param.episodes;self.epochs=param.epochs
@@ -31,8 +31,8 @@ class Agent(tf.Module):
         self.target_update=param.target_update;self.checkpoint=param.checkpoint
         self.episode=0
 
-        self.summon_net("Policy")
-        self.summon_net("Target")
+        self.summon_net("Policy")                   #création du réseau de politique
+        self.summon_net("Target")                   #création du réseau cible
 
         if not os.path.exists(self.dir): os.makedirs(self.dir)
         self.saveplace1 = os.path.join(self.dir,"Policy_network"+".h5")
