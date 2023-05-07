@@ -1,15 +1,19 @@
 import numpy as np
 import imageio.v3 as iio
 import parametres
-
+import time
 class ENV():
     def __init__(self):
         self.batches=parametres.para.inputshape[0]
-        self.state=self.getwebcam(False)
-        self.done=False
-        self.loutre =0
+        self.energy=parametres.para.energy
+        self.time_lim=parametres.para.tps_limite
+        self.reset()
     
     def getwebcam(self,enregistrer):
+        """
+        acquiert des images de la webcam
+        (par défaut laisser à 1) 
+        """
         if self.batches<0:return None
         i=0
         frames=np.zeros(parametres.para.inputshape)
@@ -18,9 +22,12 @@ class ENV():
             frames[i]=frame
             i+=1
             if frame_count > self.batches-2: break
-        return(frames)
+        self.state=frames
 
     def get_grad(self):
+        """
+        renvoie le gradient de l'image (utile pour détecter les bords)
+        """
         imgs=np.zeros(self.state.shape)
         for i in range(self.state.shape[0]):
             img2=np.gradient(self.state[i])
@@ -28,22 +35,44 @@ class ENV():
         return(np.array(imgs))
 
     def get_context_map(self):
-        return self.getwebcam(False)  #temporaire
+        """
+        fonction pour avoir une carte de contexte (actuellement inutile, 
+        mais utile si le format des données ne permet pas une convergence)
+        cf travaux de chez google
+        """
+        self.getwebcam(False)
+        return self.state  #temporaire
 
     def get_state(self):
-        #condition pour changer env.done
-        grad = self.get_grad()
+        """
+        fonction renvoyant l'état de l'environnement , traité et prête à aller dans l'agent
+        (l'ordre du code est important)
+        """
         context=self.get_context_map()
+        grad = self.get_grad()
+        
 
         return [grad,context]
 
     def take_action(self,action):
-        reward = 0
+        """
+        fonction prenant un % de la puissance à envoyer, envoie cette puissance dans le moteur puis renvoie une récompense
+        """
+        if self.energy_depensee > self.energy:
+            pass  
+            #on envoie aucune énergie au moteur
+        else:
+            pass
+            # on envoie action% de la puissance du moteur
         
-        self.loutre+=1
-        if self.loutre> 10 : self.done = True               # agit sur le moteur en fonction de l'action
-        return reward,self.done 
+        reward = 0 
+        #mettre systeme de récompense
+        if time.time()> self.time+self.time_lim: self.done = True
+        #condition pour vérifier si le temps est done
+        return  reward 
     
     def reset(self):
-        pass
+        self.energy_depensee=0
+        self.done=False
+        self.time=time.time()
 env=ENV()
