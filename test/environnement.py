@@ -2,12 +2,17 @@ import numpy as np
 import imageio.v3 as iio
 import parametres
 import time
+import pyfirmata
+
 class ENV():
     def __init__(self):
         self.batches=parametres.para.inputshape[0]
         self.energy=parametres.para.energy
         self.time_lim=parametres.para.tps_limite
         self.reset()
+        self.board = pyfirmata.Arduino('COM6') # Windows
+        self.engine = self.board.digital[3]
+        self.engine.mode = pyfirmata.PWM
     
     def getwebcam(self,enregistrer):
         """
@@ -17,7 +22,7 @@ class ENV():
         if self.batches<0:return None
         i=0
         frames=np.zeros(parametres.para.inputshape)
-        for frame_count, frame in enumerate(iio.imiter("<video0>")):
+        for frame_count, frame in enumerate(iio.imiter("<video2>")):
             if enregistrer :iio.imwrite(f"frame1_{frame_count}.jpg", frame)
             frames[i]=frame
             i+=1
@@ -35,11 +40,11 @@ class ENV():
         return(np.array(imgs))
 
     def get_context_map(self):
-        """
+        """ 
         fonction pour avoir une carte de contexte (actuellement inutile, 
         mais utile si le format des données ne permet pas une convergence)
         cf travaux de chez google
-        """
+        """ 
         self.getwebcam(False)
         return self.state  #temporaire
 
@@ -59,20 +64,23 @@ class ENV():
         fonction prenant un % de la puissance à envoyer, envoie cette puissance dans le moteur puis renvoie une récompense
         """
         if self.energy_depensee > self.energy:
-            pass  
+            self.engine.write(0)
             #on envoie aucune énergie au moteur
         else:
-            pass
+            self.engine.write(action*0.9+0.1)
             # on envoie action% de la puissance du moteur
         
-        reward = 0 
+        reward = 0
         #mettre systeme de récompense
         if time.time()> self.time+self.time_lim: self.done = True
         #condition pour vérifier si le temps est done
-        return  reward 
+        
+        return reward 
     
     def reset(self):
         self.energy_depensee=0
         self.done=False
         self.time=time.time()
 env=ENV()
+
+env.getwebcam(True)
