@@ -37,10 +37,13 @@ class para:
 
     gamma = 0.999                       	# taux de diminution de la récompense
 
-    inputshape = (1,720,1280,3)             #taille de l'input dans les RN , (laisser le 1)
+    inputshape = (3,480,640,3)             #taille de l'input dans les RN , (laisser le 1)
     actionspace = 100                       #nombre d'actions possibles ( marge de manoeuvre sur les %)
     epochs = 3                              # nombre d'epochs lors de l'entrainement
     checkpoint=20                           #episodes avant un chackpoint
 
     energy = 200                            #nombre énergie disponible ( delta E)
     tps_limite=10                           #temps d'un episode ( en secondes)
+    boatcolor= [0,255,0]                    #BGR
+    watercolor=[255,0,0]
+    color_accuracy=20
