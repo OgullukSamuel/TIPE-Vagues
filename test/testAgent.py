@@ -36,7 +36,7 @@ class Agent(tf.Module):
         self.target_update=param.target_update;self.checkpoint=param.checkpoint
         self.episode=0
         self.saving = param.save
-        self.rewards=np.zeros(self.episodes)
+        self.rewards=[]
         ###################################################################
         #création des RN et sauvegarde
         self.summon_net("Policy")
@@ -52,22 +52,23 @@ class Agent(tf.Module):
         """
         fonction de création des réseaux de neurones
         """
-        input1=tf.keras.layers.Input(shape=self.inputshape[1:],name="Input_gradient",batch_size=self.batch_size)
+        input1=tf.keras.layers.Input(shape=self.inputshape[1:],name="Input_state",batch_size=self.batch_size)
         input2=tf.keras.layers.Input(shape=self.inputshape[1:],name="Input_context")
+        input3=tf.keras.layers.Input(shape=self.inputshape[1:],name="Input_data")
 
         convo_grad = tf.keras.Sequential([
             tf.keras.layers.Conv2D(filters=3,kernel_size=2, strides=2,input_shape=self.inputshape[1:]),
             tf.keras.layers.MaxPool2D(pool_size=2, strides=1, padding="valid"),
             tf.keras.layers.Conv2D(filters=2,kernel_size=2, strides=2),
-            tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="valid")],name="Convolution_gradient")(input1)
+            tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="valid")],name="Convolution_state")(input1)
 
-        convo_context= tf.keras.Sequential([
+        convo_state= tf.keras.Sequential([
             tf.keras.layers.Conv2D(filters=3,kernel_size=2, strides=2,input_shape=self.inputshape[1:]),
             tf.keras.layers.MaxPool2D(pool_size=2, strides=1, padding="valid"),
             tf.keras.layers.Conv2D(filters=2,kernel_size=2, strides=2),
             tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="valid")],name="Convolution_context")(input2)
 
-        merge = tf.keras.layers.Multiply(name="produit_hadamard")([convo_grad,convo_context])
+        merge = tf.keras.layers.Multiply(name="produit_hadamard")([convo_grad,convo_state])
         reshape=tf.keras.layers.Reshape((178,159),name="reshape")(merge)
         patrick_GRUel=tf.keras.layers.GRU(16,name="RN_recurrent")(reshape) #,stateful=True
 
@@ -219,21 +220,17 @@ class Agent(tf.Module):
         self.current_step=0
         self.policynet.reset_states()
 
-    def save_param(self):
+    def save_rewards(self):
         """
         on enregistre les données importantes dans une DB
         #fonction pas finie
         """
+        """
         try:
             conn = sqlite3.connect("TIPE/database/rewards.db")
             cur = conn.cursor()
-            cur.execute(f'''CREATE TABLE reward (
-            "id"	INTEGER,
-            "x"	INTEGER,
-            );''')
-            conn.commit()
             for w in range(len(self.rewards)):
-                newdata = (cur.lastrowid,self.rewards[w][0])
+                newdata = (cur.lastrowid,self.rewards[w])
                 cur.execute(f"INSERT INTO reward VALUES (?,?)",newdata)
                 conn.commit()
         except Exception as e:
@@ -241,6 +238,12 @@ class Agent(tf.Module):
             conn.rollback()
         finally:
             conn.close()
+        """
+        db = sqlite3.connect("TIPE/database/rewards.db")
+        utilities.create_blob_table(db, "loutre")
+        utilities.save_blob(db, "thing1", self.rewards)
+        db.commit()  # Remember to commit changes after saving things.
+        data2 = utilities.load_blob(db, "thing1")
 
     def supervise(self):
         pass
@@ -253,25 +256,24 @@ class Agent(tf.Module):
             self.episode+=1
             self.reset()
             state = self.env.get_state()
-            
+            reward=[]
             while not self.env.done:
                 action = self.select_action(state)
-                reward = self.env.take_action(action)
+                reward.append(self.env.take_action(action))
                 next_state = self.env.get_state()
                 self.addmemory(utilities.Experience(state,action,reward,next_state,self.env.done))
                 state = next_state
                 self.fitting()
             
-            self.rewards[episode]=reward
+            self.rewards.append(reward)
             self.tautransfer()
             
             print(f"episode : {episode} || modele numero : {episode//self.checkpoint+1} || dernière récompense : {reward}")
 
             if episode % self.checkpoint ==0 and self.saving: self.save("Policy",episode//self.checkpoint+1)    #on enregistre périodiquement les modèles par sécurité  
-        self.save_param()
+        #self.save_rewards()
         if self.saving: self.save("Policy",self.episodes//self.checkpoint+2) 
         
         
 envs=environnement.ENV()
 kevin = Agent(envs)
-kevin.training()
