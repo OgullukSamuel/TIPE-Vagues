@@ -1,14 +1,14 @@
-import numpy as np
-from collections import namedtuple
-import sqlite3
-import pickle
-
-Experience = namedtuple("Experience",("state","action","reward","next_state","done"))
-
+#import numpy as np
+#from collections import namedtuple
+#import sqlite3
+#import pickle
+from multiprocessing import Process
+#Experience = namedtuple("Experience",("state","action","reward","next_state","done"))
+"""
 def extract_tensors(experiences):
-    """
-    J'extrais 5 tenseurs à partir d'un named tuples experiences 
-    """
+    #
+    #J'extrais 5 tenseurs à partir d'un named tuples experiences 
+    #
     batch = Experience(*zip(*experiences))
     t1 = np.squeeze(np.concatenate([batch.state],-1))
     t2 = np.concatenate([batch.action],-1)
@@ -19,9 +19,9 @@ def extract_tensors(experiences):
 
 class SumTree:
     write = 0
-    """
-    crée un arbre binaire (bibliothèque venant de Github)
-    """
+    
+    #crée un arbre binaire (bibliothèque venant de Github)
+    
     def __init__(self, capacity):
         self.capacity = capacity
         self.tree = np.zeros(2*capacity - 1)
@@ -72,3 +72,13 @@ def load_blob(db, name, table_name="arrays"):
 
 def create_blob_table(db, table_name="arrays"):
     db.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (name TEXT PRIMARY KEY NOT NULL, data BINARY NOT NULL)")
+
+"""
+def runInParallel(*fns):
+  proc = []
+  for fn in fns:
+    p = Process(target=fn)
+    p.start()
+    proc.append(p)
+  for p in proc:
+    p.join()

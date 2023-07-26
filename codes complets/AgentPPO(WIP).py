@@ -2,22 +2,26 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 import numpy as np
 import os
+import utilities
 import parametresPPO
 import environnement
-import matplotlib.pyplot as plt
 
+tf.random.set_seed(1234)
+
+import matplotlib.pyplot as plt
 class Agent(tf.Module):  
     """
-    Agent utilisant du DQL 
+    Agent utilisant la PPO ( Post proximal policy)
     """
     def __init__(self,env):
         #initialisation des variables en utilisant param
         ##################################################################
+        
         param=parametresPPO.para()                             
         self.env=env
         self.inputshape=param.inputshape
         self.action_space=env.action_space
-        self.initializer=param.initializer;self.supervised=param.supervised
+        self.supervised=param.supervised
         self.actor_opti=param.actor_opti
         self.critic_opti=param.critic_opti
         self.actor_metrique=param.actor_metrique
@@ -35,6 +39,8 @@ class Agent(tf.Module):
         self.episode=0
         self.saving = param.save
         self.rewards=[]
+        self.amplitude,self.episode_duration=param.amplitude,param.episode_duration
+         
         ###################################################################
         #création des RN et sauvegarde
         self.summon_nets()
@@ -52,15 +58,15 @@ class Agent(tf.Module):
         self.criticnet.reset_states()
         
     
-    def load(self,name,dir):
+    def load(self,nb):
         """
         simple fonction utilitaire pour charger facilement un RN 
         """
-        print(f"------------CHARGEMENT MODELE {name}------------")
+        print("------------CHARGEMENT MODELE ------------")
         try:
-            if name =="actor":self.actornet = tf.keras.models.load_model(dir)
-            else : self.criticnet = tf.keras.models.load_model(dir)
-            print(f"--------------MODELE CHARGE {name}--------------")
+            self.actornet = tf.keras.models.load_model(os.path.join(self.dir, f"actor_net{nb}.keras"))
+            self.criticnet = tf.keras.models.load_model(os.path.join(self.dir, f"critic_net{nb}.keras"))
+            print("--------------MODELE CHARGE --------------")
         except Exception as ex: print("échec du chargement : ",ex)
 
     def save(self,nb):
@@ -75,85 +81,10 @@ class Agent(tf.Module):
         except Exception as ex: print("échec de l'enregistrement : ",ex)
     
 
-    #def summon_net(self,nom):
+    def summon_net(self,name):
         """
         fonction de création des réseaux de neurones
         """
-        """input1=tf.keras.layers.Input(shape=self.inputshape[1:],name="Input_state",batch_size=self.batch_size)
-        input2=tf.keras.layers.Input(shape=self.inputshape[1:],name="Input_context")
-        input3=tf.keras.layers.Input(shape=((3,2)),name="Input_data")
-
-        convo_grad = tf.keras.Sequential([
-            tf.keras.layers.Conv2D(filters=2,kernel_size=3, strides=2,input_shape=self.inputshape[1:]),
-            tf.keras.layers.MaxPool2D(pool_size=2, strides=1, padding="valid"),
-            tf.keras.layers.Conv2D(filters=2,kernel_size=2, strides=2),
-            tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="valid")],name="Convolution_state")(input1)
-
-        convo_state= tf.keras.Sequential([
-            tf.keras.layers.Conv2D(filters=2,kernel_size=3, strides=2,input_shape=self.inputshape[1:]),
-            tf.keras.layers.MaxPool2D(pool_size=2, strides=1, padding="valid"),
-            tf.keras.layers.Conv2D(filters=2,kernel_size=2, strides=2),
-            tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="valid")],name="Convolution_context")(input2)
-
-        merge = tf.keras.layers.Multiply(name="produit_hadamard")([convo_grad,convo_state])
-        convo_finale= tf.keras.Sequential([
-            tf.keras.layers.Conv2D(filters=2,kernel_size=3, strides=3),
-            tf.keras.layers.MaxPool2D(pool_size=2, strides=2, padding="valid")],name="Convolution_merge")(merge)
-        reshape=tf.keras.layers.Reshape((9*13,2),name="reshape")(convo_finale)
-        attention=tf.keras.layers.Attention(name="scaled_dot_product_attention")([reshape,input3])
-        patrick_GRUel=tf.keras.layers.GRU(8,name="RN_recurrent")(attention) #,stateful=True
-
-        if self.dueling:
-            value_net = tf.keras.Sequential([
-                tf.keras.layers.Flatten(),
-                tf.keras.layers.Dense(128,activation="relu", kernel_initializer=self.initializer),
-                tf.keras.layers.Dense(1, kernel_initializer=self.initializer),
-                tf.keras.layers.Lambda(lambda s: tf.keras.backend.expand_dims(s[:, 0], -1),output_shape=(self.actionspace,))],name="Value_network")(patrick_GRUel)
-
-            advantage_net = tf.keras.Sequential([ 
-                tf.keras.layers.Flatten(),
-                tf.keras.layers.Dense(128, activation="relu", kernel_initializer=self.initializer),
-                tf.keras.layers.Dense(self.actionspace, kernel_initializer=self.initializer),
-                tf.keras.layers.Lambda(lambda a: a[:, :] - tf.keras.backend.mean(a[:, :], keepdims=True),output_shape=(self.actionspace,))],name="Advantage_network")(patrick_GRUel)
-
-            add = tf.keras.layers.Add(name="sommation")([value_net, advantage_net])
-            output = tf.keras.layers.Dense(self.actionspace, kernel_initializer=self.initializer,activation="softmax",name="normalisation")(add)
-        else: output = tf.keras.layers.Dense(self.actionspace, kernel_initializer=self.initializer,activation="softmax",name="normalisation")(patrick_GRUel)
-
-        model = tf.keras.Model([input1,input2,input3], output,name=nom)
-
-        model.compile(optimizer=self.opti, loss=self.lossing, metrics=self.metrique)
-        tf.keras.utils.plot_model(model, to_file='réseau.png')
-        model.summary()
-        if nom=="critic": self.criticnet=model
-        else:self.actornet=model"""
-    def summon_nets(self):
-        input_actor=tf.keras.layers.Input(shape=self.inputshape[1:],name="Input_state",batch_size=self.batch_size)
-        input_critic=tf.keras.layers.Input(shape=self.inputshape[1:],name="Input_tate",batch_size=self.batch_size)
-        actor=tf.keras.Sequential([
-            tf.keras.layers.Dense(64),
-            #tf.keras.layers.Dropout(.1),
-            tf.keras.layers.Reshape((1,64,)),
-            tf.keras.layers.GRU(16),
-            tf.keras.layers.Dense(self.action_space,activation="softmax")])(input_actor)
-
-        critic=tf.keras.Sequential([
-            tf.keras.layers.Dense(64),
-            tf.keras.layers.Dropout(.1),
-            tf.keras.layers.Reshape((1,64,)),
-            tf.keras.layers.GRU(16),
-            tf.keras.layers.Dense(1)])(input_critic)
-
-        actor_net = tf.keras.Model(input_actor, actor,name="actor")
-        critic_net= tf.keras.Model(input_actor, critic,name="critic")
-        actor_net.compile(optimizer=self.actor_opti, loss=self.actor_lossing, metrics=self.actor_metrique)
-        critic_net.compile(optimizer=self.critic_opti, loss=self.critic_lossing, metrics=self.critic_metrique)
-        self.actornet=actor_net
-        self.criticnet=critic_net
-        actor_net.summary()
-        critic_net.summary()
-
-
         input1=tf.keras.layers.Input(shape=self.inputshape[1:],name="Input_state",batch_size=self.batch_size)
         input2=tf.keras.layers.Input(shape=self.inputshape[1:],name="Input_context")
         input3=tf.keras.layers.Input(shape=((3,2)),name="Input_data")
@@ -178,35 +109,48 @@ class Agent(tf.Module):
         attention=tf.keras.layers.Attention(name="scaled_dot_product_attention")([reshape,input3])
         patrick_GRUel=tf.keras.layers.GRU(8,name="RN_recurrent")(attention) #,stateful=True
 
-        if self.dueling:
+        if name=="actor":
             value_net = tf.keras.Sequential([
                 tf.keras.layers.Flatten(),
-                tf.keras.layers.Dense(128,activation="relu", kernel_initializer=self.initializer),
-                tf.keras.layers.Dense(1, kernel_initializer=self.initializer),
+                tf.keras.layers.Dense(64,activation="relu"),
+                tf.keras.layers.Dense(1),
                 tf.keras.layers.Lambda(lambda s: tf.keras.backend.expand_dims(s[:, 0], -1),output_shape=(self.action_space,))],name="Value_network")(patrick_GRUel)
 
             advantage_net = tf.keras.Sequential([ 
                 tf.keras.layers.Flatten(),
-                tf.keras.layers.Dense(128, activation="relu", kernel_initializer=self.initializer),
-                tf.keras.layers.Dense(self.action_space, kernel_initializer=self.initializer),
-                tf.keras.layers.Lambda(lambda a: a[:, :] - tf.keras.backend.mean(a[:, :], keepdims=True),output_shape=(self.actionspace,))],name="Advantage_network")(patrick_GRUel)
+                tf.keras.layers.Dense(64, activation="relu"),
+                tf.keras.layers.Dense(self.action_space),
+                tf.keras.layers.Lambda(lambda a: a[:, :] - tf.keras.backend.mean(a[:, :], keepdims=True),output_shape=(self.action_space,))],name="Advantage_network")(patrick_GRUel)
 
             add = tf.keras.layers.Add(name="sommation")([value_net, advantage_net])
-            output = tf.keras.layers.Dense(self.action_space, kernel_initializer=self.initializer,activation="softmax",name="normalisation")(add)
-        else: output = tf.keras.layers.Dense(self.action_space, kernel_initializer=self.initializer,activation="softmax",name="normalisation")(patrick_GRUel)
+            output = tf.keras.layers.Dense(self.action_space,activation="softmax",name="normalisation")(add)
+        else:
+            out=tf.keras.layers.Dense(32,name="normalisation") (patrick_GRUel)
+            output = tf.keras.layers.Dense(1, activation="tanh")(out)
 
-        model = tf.keras.Model([input1,input2,input3], output,name=nom)
+        model = tf.keras.Model([input1,input2,input3], output,name=name)
 
-        model.compile(optimizer=self.opti, loss=self.lossing, metrics=self.metrique)
-        tf.keras.utils.plot_model(model, to_file='réseau.png')
+        tf.keras.utils.plot_model(model, to_file=f'{name}net.png')
         model.summary()
-        if nom=="Target": self.targetnet=model
-        else:self.policynet=model
+        if name=="actor":
+            model.compile(optimizer=self.actor_opti, loss=self.actor_lossing, metrics=self.actor_metrique)
+         
+            self.actornet=model
+        else:
+            model.compile(optimizer=self.critic_opti, loss=self.critic_lossing, metrics=self.critic_metrique)
+            self.criticnet=model
 
+    def summon_nets(self):
+        """
+        critic = 1 scalaire
+        actor = self.action_space
+        """
+        self.summon_net("actor")
+        self.summon_net("critic")
 
 
     def select_action(self,state):                                                                      
-        action = tfp.distributions.Categorical(probs=self.actornet(np.array([state])),dtype=tf.float32).sample()
+        action = tfp.distributions.Categorical(probs=self.actornet([state]),dtype=tf.float32).sample()
         return int(action.numpy()[0])
 
 
@@ -225,8 +169,15 @@ class Agent(tf.Module):
     def fitting(self, states, actions,  old_probs,adv ,  discnt_rewards):
         for _ in range(self.epochs):
             with tf.GradientTape() as tape1, tf.GradientTape() as tape2:
-                proba = self.actornet(np.array(states), training=True)
-                value =  self.criticnet(np.array(states),training=True)
+                #print(states)
+                proba=[]
+                value=[]
+                for i in states:
+                    proba.append(self.actornet(i,training=True)[0])    
+                    value.append(self.criticnet(i,training=True)[0])
+                #proba = self.actornet.predict_on_batch([[states]])
+                #value =  self.criticnet.predict([states[:][0],states[:][1],states[:][2]])
+                print(np.array(proba).shape,np.array(value).shape)
                 c_loss = 0.5 * tf.keras.losses.mean_squared_error(discnt_rewards, value)
                 a_loss = self.actor_loss(proba, actions, adv, old_probs, c_loss)
 
@@ -251,45 +202,60 @@ class Agent(tf.Module):
         loss = tf.math.negative(tf.reduce_mean(tf.math.minimum(sr1, sr2)) - closs + 0.001 * entropy)
         return loss
 
+    def ep_run(self):
+        done = False
+        self.probs = []
+        self.states=[]
+        self.rewardes=[]
+        self.dones=[]
+        self.actions=[]
+        self.values = []
+        k=1
+        while not done:  # boucle main
+            self.env.move(k,self.amplitude,timeless=True)
+            k*=-1
+            action =self.select_action(self.state)
+            value = self.criticnet(self.state).numpy()
+            nxt_state,reward,done=self.env.take_action(action)
+            self.states.append([self.state])
+            self.rewardes.append(reward)
+            self.dones.append(1-done)
+            self.actions.append(action)
+            self.probs.append(self.actornet([self.state]))
+            self.values.append(value[0][0])
+            self.state = nxt_state 
 
-    def training(self):
-        for episode in range(self.episodes):
-            done = False
-            state = self.env.reset()
-            probs = []
-            states=[]
-            rewardes=[]
-            dones=[]
-            actions=[]
-            values = []
-            while not done:  # boucle main
-                action = self.select_action(state)
-                value = self.criticnet(np.array([state])).numpy()
-                nxt_state,reward,done=self.env.take_action(action)
-                states.append(state.tolist())
-                rewardes.append(reward)
-                dones.append(1-done)
-                actions.append(action)
-                probs.append(self.actornet(np.array([state]))[0])
-                values.append(value[0][0])
-                state = nxt_state
+    def reload_exp(self):
+        with open('test.npy', 'rb') as f:
+            a = np.load(f)
+        self.rewards=a[1]
+        self.load(a[2])
+        self.training(a[0])
+
+    def training(self,retake=0):
+        for episode in range(retake,self.episodes):
+            self.state = self.env.reset()
+            self.ep_run()
                 
-            self.rewards.append(np.sum(rewardes))
-            values.append(self.criticnet(np.array([state])).numpy()[0][0])
+            self.rewards.append(np.sum(self.rewardes))
+            self.values.append(self.criticnet([self.state]).numpy()[0][0])
 
 
             print(f"episode : {episode} || modele numero : {episode//self.checkpoint+1} || dernière récompense : {self.rewards[-1]}")
-            returns, adv = self.GAE(rewardes,dones, values)
-            self.fitting(states, actions, probs, adv,  returns)  
+            returns, adv = self.GAE(self.rewardes.copy(),self.dones.copy(), self.values.copy())
+            self.fitting(self.states.copy(), self.actions.copy(), self.probs.copy(), adv,  returns)  
             
             if episode % self.checkpoint ==0 and self.saving: 
                 self.save(episode//self.checkpoint+1)    #on enregistre périodiquement les modèles par sécurité 
-
-
-env=environnementPPO.ENV()
-
-agentoo7 = Agent(env)
-agentoo7.training()
-env.close()
-plt.plot(agentoo7.rewards)
+    
+            with open('data.npy', 'wb') as f:
+                np.save(f, np.array([episode,self.rewards[-1],episode//self.checkpoint+1,self.dones]))
+        plt.plot(self.rewards)
+        plt.show()
+env=environnement.ENV()
+print("poulet1")
+bernard = Agent(env)
+print("poulet")
+bernard.training()
+plt.plot(bernard.rewards)
 plt.show()
